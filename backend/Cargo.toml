@@ -1,0 +1,13 @@
+[package]
+name = "gu-factor"
+version = "0.1.0"
+authors = ["Piotr Chromiec <tworec@golem.network>"]
+
+[dependencies]
+log = "0.4"
+env_logger = "0.5"
+clap = "2.32"
+
+
+[dependencies.num_cpus]
+version = "1.0"
