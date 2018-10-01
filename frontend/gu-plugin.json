@@ -1,0 +1,8 @@
+{
+ "name": "Factoring",
+ "version": "0.1.0",
+ "author": "Golem Factory",
+ "gu-version-req": "*",
+ "load": [ "app.js" ]
+}
+
