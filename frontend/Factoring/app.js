@@ -1,4 +1,4 @@
-
+(function() {
 var images = {
     linux: ["/app/images/gu-factor-linux.tar.gz", "gu-factor-linux1"],
     macos: ["/app/images/gu-factor-macos.tar.gz", "gu-factor-macos1"],
@@ -366,3 +366,4 @@ angular.module('gu')
 
     return { session: session }
 })
+})();
