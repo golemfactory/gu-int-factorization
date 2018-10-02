@@ -222,7 +222,7 @@ angular.module('gu')
 //            $log.info("partial work result", result);
             this.workDone++;
             _.each(result, divisor => {
-                if (this.number % divisor == 0) {
+                while (this.number % divisor == 0) {
                     this.number /= divisor;
                     _.each(this.work, workDesc => {
                         workDesc[0] = this.number;
