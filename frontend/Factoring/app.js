@@ -109,7 +109,6 @@ angular.module('gu')
 
     var session = $scope.$eval('session');
     $scope.fSession = factoringMan.session(session.id);
-
     $scope.number = '';
 
     sessionMan.peers(session, true).then(peers => {
@@ -118,7 +117,12 @@ angular.module('gu')
     });
 
     $scope.factorize = function() {
-        $scope.fSession.start($scope.number)
+        $scope.fSession.start($scope.number);
+    }
+
+    $scope.stop = function() {
+        $log.info("stopping");
+        $scope.fSession.stop($scope.number);
     }
 
 
@@ -129,45 +133,8 @@ angular.module('gu')
 
     const TAG_FACTORING = 'gu:factoring';
 
-    var progress = {};
-
-    function startProgress(nodeId, tag, estimated, future, label) {
-        var nodeProgress = progress[nodeId] || {};
-        var tagProgress = nodeProgress[tag] || {};
-        var ts = new Date();
-
-        tagProgress.start = ts.getTime();
-        tagProgress.end = ts.getTime() + estimated*1000;
-        tagProgress.size = tagProgress.end - tagProgress.start;
-        tagProgress.label = label;
-
-        nodeProgress[tag] = tagProgress;
-        progress[nodeId] = nodeProgress;
-
-        $q.when(future)
-        .then(v => $log.info('tag done', tag, nodeId))
-        .then(v => delete nodeProgress[tag])
-    }
-
-    function getProgressAll() {
-        return progress;
-    }
-
-    function getProgress(nodeId, tag) {
-        var nodeProgress = progress[nodeId] || {};
-        var tagProgress = nodeProgress[tag] || {};
-
-        return tagProgress;
-    }
-
     function isFactoringSession(session) {
-        return _.any(session.data.tags, tag => tag === 'gu:factoring');
-    }
-
-    function getSessionType(session) {
-            if (_.any(session.data.tags, tag => tag === TAG_FACTORING)) {
-                return TAG_FACTORING;
-            }
+        return _.any(session.data.tags, tag => tag === TAG_FACTORING);
     }
 
     class FactoringSession {
@@ -176,6 +143,7 @@ angular.module('gu')
             this.session = sessionMan.getSession(id);
             this.peers = [];
             this.$resolved=false;
+            this.result=[];
         }
 
         resolveSessions() {
@@ -207,21 +175,67 @@ angular.module('gu')
         }
 
         start(number) {
-            var step = Math.ceil( number / (peers.length * 10) );
-            var from = 1;
-
-            while (from < number) {
-                this.work[i] = [number, from, from + step];
-                from += step;
+            var number = parseInt(number);
+            if (!number) {
+                $log.error("not a number: ", number);
+                return
             }
+            this.number = number;
+
+            $log.info("factorizing: " + number);
+            var step = 10e7;
+
+            if (number / step > 10e7) {
+                $log.error("cowardly refusing to tackle with such a big number", number);
+                return
+            }
+
+            var from = 1;
+            var i=0;
+            this.work = [];
+            while (from < number) {
+                this.work[i++] = [number, from, from += step];
+            }
+            this.work.reverse();
+            this.workSize = i;
+            this.workDone = 0;
+            this.result=[];
+
+            $log.info(this.work);
+            _.each(this.peers, peer => peer.factorize());
+        }
+
+        stop() {
+            this.work = [];
         }
 
         getWork() {
-            this.work.pop()
+            return this.work.pop();
+        }
+
+        giveUpWork(workDesc) {
+            $log.warn("partial work given up", workDesc);
+            this.work.push(workDesc);
         }
 
         resolveWork(result) {
-            this.result += result;
+//            $log.info("partial work result", result);
+            this.workDone++;
+            _.each(result, divisor => {
+                if (this.number % divisor == 0) {
+                    this.number /= divisor;
+                    _.each(this.work, workDesc => {
+                        workDesc[0] = this.number;
+                        workDesc[1] = Math.ceil(workDesc[1]/ divisor);
+                        workDesc[1] = Math.ceil(workDesc[2]/ divisor);
+                    })
+                }
+            });
+            this.result = this.result.concat(result);
+        }
+
+        isWorking() {
+            return this.workDone < this.workSize;
         }
     }
 
@@ -232,8 +246,6 @@ angular.module('gu')
             this.peer = hdMan.peer(nodeId);
             this.os = details.os;
             this.gpu = details.gpu;
-            this.sessions = [];
-            // map session.type -> 'pid'
             this.$afterBench = null;
 
             if (details.sessions) {
@@ -246,56 +258,51 @@ angular.module('gu')
 
         importSessions(rawHdManSessions) {
             $log.info('rawSessions', rawHdManSessions);
-            this.sessions = [];
             _.each(rawHdManSessions, rawSession => {
                 if (isFactoringSession(rawSession)) {
-                    var session = new FactoringPeerSession(this, rawSession.id, getSessionType(rawSession));
-                    session.hdSession = rawSession;
-                    this.sessions.push(session);
+                    this.fpSession = new FactoringPeerSession(this, rawSession.id, TAG_FACTORING);
+                    this.fpSession.hdSession = rawSession;
                 }
             });
         }
 
-        // TODO: exec
         init() {
             $q.when(this.$init).then(_v => {
-                this.deploy(sessType).then(session => {
-                    $log.info("would exec", session)
-                })
+                if (!this.fpSession) {
+                    this.deploy()
+                }
             });
         }
 
-        deploy(type) {
+        deploy() {
             var promise = sessionMan.getOs(this.id).then(os => {
                 var image = images[os.toLowerCase()];
-                $log.info('image', image, os.toLowerCase(), images[os.toLowerCase()], type);
+                $log.info('image', image, os.toLowerCase(), images[os.toLowerCase()]);
                 $log.info('hd peer', typeof this.peer, this.peer);
                 var rawSession = this.peer.newSession({
-                    name: 'gu:factoring ' + type,
+                    name: TAG_FACTORING,
                     image: {cache_file: image[1] + '.tar.gz', url: image[0]},
-                    tags: ['gu:factoring', type]
+                    tags: [TAG_FACTORING]
                 });
-                var session = new FactoringPeerSession(this, rawSession.id, type);
-                session.hdSession = rawSession;
-
-                this.sessions.push(session);
+                this.fpSession = new FactoringPeerSession(this, rawSession.id);
+                this.fpSession.hdSession = rawSession;
 
                 return rawSession.$create.then(v => {
                     return session;
                 })
             });
 
-            startProgress(this.id, 'deploy:' + type, 15, promise, 'installing');
+            startProgress(this.id, 'deploy:' + TAG_FACTORING, 15, promise, 'installing');
 
             return promise;
         }
 
         save(key, val) {
-            window.localStorage.setItem('gu:factoring:' + this.id + ':' + key, JSON.stringify(val))
+            window.localStorage.setItem(TAG_FACTORING + ':' + this.id + ':' + key, JSON.stringify(val))
         }
 
         load(key) {
-            var key = 'gu:factoring:' + this.id + ':' + key;
+            var key = TAG_FACTORING + ':' + this.id + ':' + key;
             var it = window.localStorage.getItem(key);
             if (it) {
                 return JSON.parse(it);
@@ -306,12 +313,21 @@ angular.module('gu')
 //            this.save('hr', hr);
         }
 
-        exec(type, mode) {
-            var session = _.findWhere(this.sessions, {type: type});
-            $log.info('exec', type, mode, session);
-            return session.exec(mode).then(r => {
-                if (r.Ok) {
-                    var pid = r.Ok;
+        factorize() {
+            var workDesc = this.session.getWork();
+            if (!workDesc)
+                return;
+
+            var [number, from, to] = workDesc;
+            this.fpSession.exec(number, from, to).then(output => {
+                if (output.Ok) {
+                    var r = output.Ok[0];
+                    var arr = JSON.parse(r.substring(r.lastIndexOf(':')+1, r.length-1));
+                    this.session.resolveWork(arr);
+                    this.factorize();
+                } else {
+                    $log.error('exec err', output, this);
+                    this.session.giveUpWork(workDesc);
                 }
             })
         }
@@ -323,33 +339,14 @@ angular.module('gu')
 
     class FactoringPeerSession {
 
-        constructor(peer, id, number, from, to) {
+        constructor(peer, id) {
             this.peer = peer;
             this.id= id;
-            this.number = number;
-            this.from = from;
-            this.to = to;
         }
 
-        exec() {
-            $log.info('factoring exec', number, from, to);
-            return this.hdSession.exec('gu-mine', [''+this.number, ''+this.from, ''+this.to]).then(output => {
-                if (output.Ok) {
-                    try {
-                        this.status = 'RUNNING';
-                        var result = output.Ok;
-                        $log.info('exec output:', result);
-                        return output.Ok;
-                    } catch(e) {
-                        this.status = 'FAIL';
-                        $log.error('hr fail', e, output, this);
-                        return {Err: 'invalid output'};
-                    }
-                } else {
-                    this.status = 'FAIL';
-                    return output;
-                }
-            })
+        exec(number, from, to) {
+            $log.info('factoring exec:', number, from, to);
+            return this.hdSession.exec('gu-factor', [''+number, ''+from, ''+to]);
         }
 
         drop() {
@@ -369,23 +366,5 @@ angular.module('gu')
         return cache[id];
     }
 
-    interval = $interval(tick, 500);
-
-    function tick() {
-        var ts = new Date();
-
-        _.each(progress, (progressNode, nodeId) => {
-            _.each(progressNode, (progressInfo, tag) => {
-                if (!progressInfo.size) {
-                    progressInfo.size = progressInfo.end - progressInfo.start;
-                }
-                progressInfo.pos = ts.getTime() - progressInfo.start;
-                if (progressInfo.pos > progressInfo.size) {
-                    progressInfo.size = progressInfo.size * 1.2;
-                }
-            })
-        })
-    }
-
-    return { session: session, progress: getProgress, getProgressAll: getProgressAll }
+    return { session: session }
 })
