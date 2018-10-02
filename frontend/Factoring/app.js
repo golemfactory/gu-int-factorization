@@ -1,7 +1,7 @@
 
 var images = {
-    linux: ["http://10.30.8.179:61622/app/images/gu-factor-linux.tar.gz", "guf-linux"],
-    macos: ["http://10.30.8.179:61622/app/images/gu-factor-macos.tar.gz", "guf-macos"],
+    linux: ["/app/images/gu-factor-linux.tar.gz", "gu-factor-linux1"],
+    macos: ["/app/images/gu-factor-macos.tar.gz", "gu-factor-macos1"],
 }
 
 angular.module('gu')
@@ -281,7 +281,7 @@ angular.module('gu')
                 $log.info('hd peer', typeof this.peer, this.peer);
                 var rawSession = this.peer.newSession({
                     name: TAG_FACTORING,
-                    image: {cache_file: image[1] + '.tar.gz', url: image[0]},
+                    image: {cache_file: image[1] + '.tar.gz', url: window.location.origin + image[0]},
                     tags: [TAG_FACTORING]
                 });
                 this.fpSession = new FactoringPeerSession(this, rawSession.id);
