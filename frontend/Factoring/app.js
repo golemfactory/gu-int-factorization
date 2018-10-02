@@ -222,7 +222,7 @@ angular.module('gu')
 //            $log.info("partial work result", result);
             this.workDone++;
             _.each(result, divisor => {
-                while (this.number % divisor == 0) {
+                while (this.number % divisor == 0 && divisor > 1) {
                     this.number /= divisor;
                     _.each(this.work, workDesc => {
                         workDesc[0] = this.number;
@@ -291,8 +291,6 @@ angular.module('gu')
                     return session;
                 })
             });
-
-            startProgress(this.id, 'deploy:' + TAG_FACTORING, 15, promise, 'installing');
 
             return promise;
         }
