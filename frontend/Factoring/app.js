@@ -6,7 +6,7 @@ var images = {
 
 angular.module('gu')
 .run(function(pluginManager) {
-    pluginManager.addTab({name: 'Factoring', icon: '/plug/Factoring/baby-formula.svg', page: '/plug/Factoring/base.html'})
+    pluginManager.addTab({name: 'Factoring', icon: '/plug/Factoring/factoring.svg', page: '/plug/Factoring/base.html'})
 })
 
 .controller('FactoringController', function($scope) {
