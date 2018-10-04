@@ -6,15 +6,15 @@ var images = {
 
 angular.module('gu')
 .run(function(pluginManager) {
-    pluginManager.addTab({name: 'Factoring', icon: '/plug/Factoring/factoring.svg', page: '/plug/Factoring/base.html'})
+    pluginManager.addTab({name: 'Factorization', icon: '/plug/Factorization/factorization.svg', page: '/plug/Factorization/base.html'})
 })
 
-.controller('FactoringController', function($scope) {
+.controller('FactorizationController', function($scope) {
 
     var myStorage = window.localStorage;
 
     $scope.config = {
-        number: myStorage.getItem('factoring:number', '')
+        number: myStorage.getItem('factorization:number', '')
     };
 
     $scope.sessionPage=function(session) {
@@ -25,17 +25,17 @@ angular.module('gu')
         }
 
         if (session.status === 'NEW') {
-            return "/plug/Factoring/new-session.html";
+            return "/plug/Factorization/new-session.html";
         }
         if (session.status === 'WORKING') {
-            return "/plug/Factoring/session-working.html"
+            return "/plug/Factorization/session-working.html"
         }
 
     }
 
     $scope.save = function() {
         console.log('save ', $scope.config);
-        myStorage.setItem('factoring:number',$scope.config.number);
+        myStorage.setItem('factorization:number',$scope.config.number);
     }
 
     $scope.openSession = function(session) {
@@ -50,16 +50,16 @@ angular.module('gu')
     }
 })
 
-.controller('FactoringSessionsController', function($scope, $uibModal, $log, sessionMan, factoringMan) {
+.controller('FactorizationSessionsController', function($scope, $uibModal, $log, sessionMan, factorizationMan) {
 
-    $scope.sessions = sessionMan.sessions('gu:factoring');
+    $scope.sessions = sessionMan.sessions('gu:factorization');
     $scope.newSession = function() {
-        sessionMan.create('gu:factoring', 'hd');
-        $scope.sessions = sessionMan.sessions('gu:factoring');
+        sessionMan.create('gu:factorization', 'hd');
+        $scope.sessions = sessionMan.sessions('gu:factorization');
     };
 
     function reload() {
-        $scope.sessions = sessionMan.sessions('gu:factoring');
+        $scope.sessions = sessionMan.sessions('gu:factorization');
     }
 
     $scope.dropSession = function(session) {
@@ -70,7 +70,7 @@ angular.module('gu')
                 $scope.title = 'Session delete';
                 $scope.question = 'Delete session ' + session.id + ' ?';
                 $scope.ok = function() {
-                    var mSession = factoringMan.session(session.id);
+                    var mSession = factorizationMan.session(session.id);
                     sessionMan.dropSession(session);
                     reload();
                     $uibModalInstance.close()
@@ -80,7 +80,7 @@ angular.module('gu')
     }
 })
 
-.controller('FactoringPreselection', function($scope, sessionMan) {
+.controller('FactorizationPreselection', function($scope, sessionMan) {
 
     $scope.peers = [];
     $scope.all = false;
@@ -102,13 +102,13 @@ angular.module('gu')
         sessionMan.updateSession($scope.session, 'WORKING', {peers: _.filter($scope.peers, peer => peer.assigned)})
     }
 
-    console.log('FactoringPreselection session', $scope.session);
+    console.log('FactorizationPreselection session', $scope.session);
 })
 
-.controller('FactoringWork', function($scope, $log, sessionMan, factoringMan) {
+.controller('FactorizationWork', function($scope, $log, sessionMan, factorizationMan) {
 
     var session = $scope.$eval('session');
-    $scope.fSession = factoringMan.session(session.id);
+    $scope.fSession = factorizationMan.session(session.id);
     $scope.number = '';
 
     sessionMan.peers(session, true).then(peers => {
@@ -126,18 +126,18 @@ angular.module('gu')
     }
 
 
-    console.log('FactoringWork session', $scope.session);
+    console.log('FactorizationWork session', $scope.session);
 })
 
-.service('factoringMan', function($log, $interval, $q, sessionMan, hdMan) {
+.service('factorizationMan', function($log, $interval, $q, sessionMan, hdMan) {
 
-    const TAG_FACTORING = 'gu:factoring';
+    const TAG_FACTORIZATION = 'gu:factorization';
 
-    function isFactoringSession(session) {
-        return _.any(session.data.tags, tag => tag === TAG_FACTORING);
+    function isFactorizationSession(session) {
+        return _.any(session.data.tags, tag => tag === TAG_FACTORIZATION);
     }
 
-    class FactoringSession {
+    class FactorizationSession {
         constructor(id) {
             this.id = id;
             this.session = sessionMan.getSession(id);
@@ -151,7 +151,7 @@ angular.module('gu')
                 sessionMan.peers(this.session, true).then(peers => {
                         $log.info('resolved peers', this.session, peers);
                         this.peers = _.map(peers, peer => {
-                            return new FactoringPeer(this, peer.nodeId, peer)
+                            return new FactorizationPeer(this, peer.nodeId, peer)
                         });
                     this.$resolved = true;
 
@@ -239,7 +239,7 @@ angular.module('gu')
         }
     }
 
-    class FactoringPeer {
+    class FactorizationPeer {
         constructor(session, nodeId, details) {
             this.session = session;
             this.id = nodeId;
@@ -259,8 +259,8 @@ angular.module('gu')
         importSessions(rawHdManSessions) {
             $log.info('rawSessions', rawHdManSessions);
             _.each(rawHdManSessions, rawSession => {
-                if (isFactoringSession(rawSession)) {
-                    this.fpSession = new FactoringPeerSession(this, rawSession.id, TAG_FACTORING);
+                if (isFactorizationSession(rawSession)) {
+                    this.fpSession = new FactorizationPeerSession(this, rawSession.id, TAG_FACTORIZATION);
                     this.fpSession.hdSession = rawSession;
                 }
             });
@@ -280,11 +280,11 @@ angular.module('gu')
                 $log.info('image', image, os.toLowerCase(), images[os.toLowerCase()]);
                 $log.info('hd peer', typeof this.peer, this.peer);
                 var rawSession = this.peer.newSession({
-                    name: TAG_FACTORING,
+                    name: TAG_FACTORIZATION,
                     image: {cache_file: image[1] + '.tar.gz', url: image[0]},
-                    tags: [TAG_FACTORING]
+                    tags: [TAG_FACTORIZATION]
                 });
-                this.fpSession = new FactoringPeerSession(this, rawSession.id);
+                this.fpSession = new FactorizationPeerSession(this, rawSession.id);
                 this.fpSession.hdSession = rawSession;
 
                 return rawSession.$create.then(v => {
@@ -296,11 +296,11 @@ angular.module('gu')
         }
 
         save(key, val) {
-            window.localStorage.setItem(TAG_FACTORING + ':' + this.id + ':' + key, JSON.stringify(val))
+            window.localStorage.setItem(TAG_FACTORIZATION + ':' + this.id + ':' + key, JSON.stringify(val))
         }
 
         load(key) {
-            var key = TAG_FACTORING + ':' + this.id + ':' + key;
+            var key = TAG_FACTORIZATION + ':' + this.id + ':' + key;
             var it = window.localStorage.getItem(key);
             if (it) {
                 return JSON.parse(it);
@@ -335,7 +335,7 @@ angular.module('gu')
         }
     }
 
-    class FactoringPeerSession {
+    class FactorizationPeerSession {
 
         constructor(peer, id) {
             this.peer = peer;
@@ -343,7 +343,7 @@ angular.module('gu')
         }
 
         exec(number, from, to) {
-            $log.info('factoring exec:', number, from, to);
+            $log.info('factorization exec:', number, from, to);
             return this.hdSession.exec('gu-factor', [''+number, ''+from, ''+to]);
         }
 
@@ -360,7 +360,7 @@ angular.module('gu')
         if (id in cache) {
             return cache[id];
         }
-        cache[id] = new FactoringSession(id);
+        cache[id] = new FactorizationSession(id);
         return cache[id];
     }
 

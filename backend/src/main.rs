@@ -15,7 +15,7 @@ fn main() {
     env_logger::init();
 
     use clap::{App, Arg};
-    let m = App::new("Integer Factoring")
+    let m = App::new("Integer Factorization")
         .about("Factors given integer using all available CPU cores")
         .arg(Arg::with_name("number").index(1).required(true))
         .arg(Arg::with_name("from").index(2))

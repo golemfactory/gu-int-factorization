@@ -1,12 +1,12 @@
-<div class="col-md-12" ng-controller="FactoringController">
+<div class="col-md-12" ng-controller="FactorizationController">
     <div class="panel panel-default">
         <div class="panel-heading">
-            <h4><img src="/plug/Factoring/factoring.svg" width="45" height="45">Factoring</h4>
+            <h4><img src="/plug/Factorization/factorization.svg" width="45" height="45">Factorization</h4>
         </div>
         <div class="panel-body">
             <uib-tabset active="active">
                 <uib-tab heading="Sessions" select="onSessions()">
-                    <div ng-include="'/plug/Factoring/session.html'"></div>
+                    <div ng-include="'/plug/Factorization/session.html'"></div>
                 </uib-tab>
                 <uib-tab ng-show="!!session" heading="{{session.id}}">
                     <div ng-include="sessionPage(session)"/>

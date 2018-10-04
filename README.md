@@ -1,2 +1,2 @@
-# gu-int-factoring
-Integer factoring mock-up plugin for Golem Unlimited
+# gu-int-factorization
+Integer factorization mock-up plugin for Golem Unlimited
