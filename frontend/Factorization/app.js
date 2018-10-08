@@ -6,7 +6,7 @@ var images = {
 
 angular.module('gu')
 .run(function(pluginManager) {
-    pluginManager.addTab({name: 'Factorization', icon: '/plug/Factorization/factorization.svg', page: '/plug/Factorization/base.html'})
+    pluginManager.addTab({name: 'Factorization', iconClass: 'gu-factorization-icon', page: '/plug/Factorization/base.html'})
 })
 
 .controller('FactorizationController', function($scope) {
