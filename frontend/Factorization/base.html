@@ -1,21 +1,18 @@
-<div class="col-md-12" ng-controller="FactorizationController">
-    <div class="panel panel-default">
-        <div class="panel-heading">
-            <h4>
-                <span style="font-size: 45px;" class="gu-factorization-icon"></span>
-                Factorization
-            </h4>
-        </div>
-        <div class="panel-body">
-            <uib-tabset active="active">
-                <uib-tab heading="Sessions" select="onSessions()">
-                    <div ng-include="'/plug/Factorization/session.html'"></div>
-                </uib-tab>
-                <uib-tab ng-show="!!session" heading="{{session.id}}">
-                    <div ng-include="sessionPage(session)"/>
-                </uib-tab>
-
-            </uib-tabset>
+<div class="panel panel-default" ng-controller="FactorizationPreselection">
+    <div class="panel-heading">
+        <h4><i class="glyphicon glyphicon-cog"></i> Select nodes</h4>
+    </div>
+    <div class="panel-body">
+        <gu-select-provider ng-model="sessionPeers"></gu-select-provider>
+    </div>
+    <div class="panel-footer">
+        <div class="row">
+            <div class="col-md-12">
+                <button class="btn btn-primary pull-right" ng-click="goNext()" ng-disabled="sessionPeers.length === 0">
+                    Start
+                    <i class="glyphicon glyphicon-arrow-right"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
