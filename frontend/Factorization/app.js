@@ -1,10 +1,92 @@
 (function () {
     const images = {
-        linux: ["http://52.31.143.91/images/gu-factor-linux.tar.gz", "sha1:99d841969474042495aa5438088e5ee0b1146e7c"],
-        macos: ["http://52.31.143.91/images/gu-factor-macos.tar.gz", "sha1:95f24ce9b761bef7214b21617bd3b6a924895f67"],
+        "Linux": {url: "http://52.31.143.91/images/gu-factor-linux.tar.gz", hash: "sha1:99d841969474042495aa5438088e5ee0b1146e7c"},
+        "MacOs": {url: "http://52.31.143.91/images/gu-factor-macos.tar.gz", hash: "sha1:95f24ce9b761bef7214b21617bd3b6a924895f67"},
     };
 
     const tags = ['gu:demo', 'gu:demo:taskType=factorization'];
+
+    class ProcessingManager {
+        constructor(deployments) {
+            this.deployments = deployments;
+            this.working = false;
+            this.counters = {};
+        }
+
+        run(value) {
+
+            let self = this;
+            let working = {
+                val: BigInt(value),
+                position: BigInt(2),
+                fact: []
+            };
+
+            async function processWork(deployment) {
+                let work = self.produceWork();
+                while (work && self.working === working) {
+                    let result = await deployment.update(work.commands);
+                    self.counters[deployment.node.id]= (self.counters[deployment.node.id] || 0)+1;
+                    if (self.working == working) {
+                        self.addResult(work, result);
+                    }
+
+                    work = self.produceWork();
+                }
+            }
+
+            this.working = working;
+
+            return Promise.all(this.deployments.map(processWork))
+        }
+
+        workCnt(nodeId) {
+            return this.counters[nodeId];
+        }
+
+        get progress() {
+            return this.working ? Number(this.working.position * 100n / this.working.val) : 100;
+        }
+
+        get isActive() {
+            return this.working && this.working.position < this.working.val;
+        }
+
+        stop() {
+            this.results = this.working;
+            this.working = undefined;
+        }
+
+        produceWork() {
+            let val = this.working.val;
+            let from = this.working.position;
+            let to = from+BigInt(100000);
+
+            if (from >= val) {
+                return;
+            }
+
+            if (to > val) {
+                to = val;
+            }
+
+            this.working.position = to;
+
+            return {
+                from: from,
+                to: to,
+                val: val,
+                commands: [{exec: {executable: "gu-factor", args: [val.toString(), from.toString(), to.toString()]}}]
+            }
+        }
+
+        addResult(work, result) {
+            let r = result[0];
+            var arr = JSON.parse(r.substring(r.lastIndexOf(':') + 1, r.length - 1));
+            this.working.fact = this.working.fact.concat(arr);
+        }
+
+    }
 
     angular.module('gu')
         .run(function (pluginManager, sessionMan) {
@@ -45,19 +127,47 @@
 
         .service('factorizationMan', function ($log, $interval, $q, sessionMan, hdMan) {
 
-            function deployApp(sessionPeers) {
+            async function deployApp(session, sessionPeers = []) {
+                if (sessionPeers.length > 0) {
+                    await session.addPeers(sessionPeers);
+                }
 
+                let peers = await session.peers;
 
+                let pendingDeployments = [];
 
+                for (let peer of peers) {
+                    let deployments = await peer.deployments;
 
+                    if (deployments.length === 0) {
+                        peer.createHdDeployment({
+                            name: "Factorization demo backend",
+                            tags: tags,
+                            images: images
+                        });
+                    }
+                    else {
+                        pendingDeployments.push(deployments[0]);
+                    }
+                }
+
+                let deployments = await Promise.all(pendingDeployments);
+
+                /*await*/ session.updateConfig(config => {
+                    if (config.status === 'new') {
+                        config.status = 'working';
+                    }
+                });
+
+                return deployments;
             }
 
 
-            return {session: session}
+            return {deployApp: deployApp}
         })
 
 
-        .controller('FactorizationPreselection', function ($scope, sessionMan) {
+        .controller('FactorizationPreselection', function ($scope, factorizationMan) {
             let session = $scope.$eval('currentSession');
             let context = $scope.$eval('sessionContext');
 
@@ -67,26 +177,41 @@
                 }
             });
 
-            session.peers().then(peers => {
-                $scope.sessionPeers = peers;
+            session.peers.then(peers => {
+                $scope.sessionPeers = peers.map(peer => peer.id);
             });
 
 
             //
             $scope.goNext = function () {
-                console.log('sessionPeers', $scope.sessionPeers);
-
-
-                /*
-                session.addPeers($scope.sessionPeers)
-                    .then(function () {
-                        context.setPage(session, '/plug/Factorization/session-working.html');
-                    });*/
+                factorizationMan.deployApp(session, $scope.sessionPeers).then(() => {
+                    context.setPage(session, '/plug/Factorization/session-working.html');
+                })
             };
         })
+        .controller('FactorizationWork', function ($scope, factorizationMan) {
+            let session = $scope.$eval('currentSession');
+            let context = $scope.$eval('sessionContext');
+
+            $scope.peers = [];
+            $scope.value = 0n;
 
 
+            factorizationMan.deployApp(session).then(deployments => {
+                console.log('app ready');
+                $scope.deployments = deployments;
+                $scope.peers = deployments.map(deployment => deployment.node);
+                $scope.manager = new ProcessingManager(deployments);
+            });
 
+            $scope.factorize = function () {
+                let value = BigInt($scope.value);
+                if (value) {
+                    $scope.manager.run(value);
+                }
+            }
+
+        })
         .controller('FactorizationController', function ($scope) {
 
             var myStorage = window.localStorage;
@@ -109,18 +234,18 @@
                     return "/plug/Factorization/session-working.html"
                 }
 
-            }
+            };
 
             $scope.save = function () {
                 console.log('save ', $scope.config);
                 myStorage.setItem('factorization:number', $scope.config.number);
-            }
+            };
 
             $scope.openSession = function (session) {
                 console.log('open', session, $scope.active);
                 $scope.session = session;
                 $scope.active = 1;
-            }
+            };
 
             $scope.onSessions = function () {
                 console.log('on sessions');
@@ -128,6 +253,7 @@
             }
         })
 
+        /*
         .controller('FactorizationWork', function ($scope, $log, sessionMan, factorizationMan) {
 
             var session = $scope.$eval('session');
@@ -141,16 +267,17 @@
 
             $scope.factorize = function () {
                 $scope.fSession.start($scope.number);
-            }
+            };
 
             $scope.stop = function () {
                 $log.info("stopping");
                 $scope.fSession.stop($scope.number);
-            }
+            };
 
 
             console.log('FactorizationWork session', $scope.session);
         })
+        */
 
         /*.service('factorizationMan', function ($log, $interval, $q, sessionMan, hdMan) {
 
