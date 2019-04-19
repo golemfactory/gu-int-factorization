@@ -73,7 +73,7 @@
         </div>
     </div>
     <div class="panel-footer">
-        <div class="row" ng-if="manager.working">
+        <div class="row" ng-if="manager.isActive">
             <div class="col-md-6">
                 <uib-progress max="100" animate="false">
                     <uib-bar value="manager.progress" type="success"
@@ -83,11 +83,18 @@
             </div>
             <div class="col-md-6">
                 Dividers found:
-                <span ng-repeat="divider in manager.working.fact">
+                <span ng-repeat="divider in manager.process.fact">
                     <span class="label label-primary">{{divider}}</span>
                 </span>
             </div>
         </div>
-
+        <div class="row" ng-if="!manager.isActive && manager.lastResult">
+            <div class="col-md-12">
+                Dividers found:
+                <span ng-repeat="divider in manager.lastResult.fact">
+                    <span class="label label-primary">{{divider}}</span>
+                </span>
+            </div>
+        </div>
     </div>
 </div>
