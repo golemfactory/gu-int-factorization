@@ -1,62 +1,48 @@
-<div ng-controller="FactorizationWork">
-    <div class="row">
-        <div class="col-md-12">
-            <span class="text-mute">Preselection</span>
-            <i class="glyphicon glyphicon-menu-right"></i>
-            <b>Factorization</b>
-        </div>
+<div class="panel panel-default" ng-controller="FactorizationWork">
+    <div class="panel-heading">
+        <h4><i class="glyphicon glyphicon-cog"></i> Factorization</h4>
     </div>
-
-    <div class="row">
-        <div class="col-md-12">
-            <div ng-if="!!fSession.workSize">
-                <uib-progress max="fSession.workSize" animate="false">
-                    <uib-bar value="fSession.workDone" type="success"
-                             title="work done">
-                        <span ng-hide="fSession.workDone/fSession.workSize < 0.03">
-                            {{100*fSession.workDone/fSession.workSize | number: 1}} %
-                        </span>
-                    </uib-bar>
-                </uib-progress>
-                <div>
-                    Dividers found: <ul>
-                    <li ng-repeat="divider in fSession.result">{{divider}}</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="pull-right" style="padding: 8px;">
-                <input class="form-control" ng-model="number" type="text" placeholder="input number to factorize">
-                <button class="btn btn-primary" ng-class="{'disabled': !number}"
+    <div class="panel-body">
+        <div class="row">
+            <form class="col-md-12 form-inline">
+                <div class="form-group">
+                    <input class="form-control" ng-model="value" type="text" placeholder="input number to factorize">
+                    <button class="btn btn-primary" ng-class="{'disabled': !value}"
                         ng-click="factorize()">Factorize</button>
-                <button class="btn btn-danger" ng-class="{'disabled': !fSession.isWorking()}"
-                        ng-click="stop()">Stop</button>
-            </div>
-            <table class="table table-border">
-                <thead>
-                <tr>
-                    <th>Node Id</th>
-                    <th>Name</th>
-                    <th>RAM</th>
-                    <th>GPU</th>
-                </tr>
-                <tr>
-                    <td colspan="4"></td>
-                </tr>
-                </thead>
+                    <button class="btn btn-danger" ng-class="{'disabled': !manager.isActive}"
+                        ng-click="manager.stop()">Stop</button>
+                </div>
+            </form>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <table class="table table-border">
+                    <thead>
+                    <tr>
+                        <th>Node Id</th>
+                        <th>Name</th>
+                        <th>Work</th>
+                        <th>RAM</th>
+                        <th>GPU</th>
+                    </tr>
+                    </thead>
 
-                <tbody>
-                <tr ng-repeat="peer in peers track by peer.nodeId">
-                    <td>
-                        <code>{{peer.nodeId | limitTo:11}}</code>
-                        <span class="label label-{{peer.os.toLowerCase().includes('macos') ? 'info' : 'default'}}"
-                              ng-if="peer.os">
+                    <tbody>
+                    <tr ng-repeat="peer in peers track by peer.id">
+                        <td>
+                            <code>{{peer.nodeId | limitTo:11}}</code>
+                            <span class="label label-{{peer.os.toLowerCase().includes('macos') ? 'info' : 'default'}}"
+                                  ng-if="peer.os">
                             {{peer.os}}
                         </span>
-                    </td>
-                    <td>
-                        {{(peer.nodeName || peer.hostname)}}
-                    </td>
-                    <td><span ng-if="peer.ram">
+                        </td>
+                        <td>
+                            {{(peer.nodeName || peer.hostName)}}
+                        </td>
+                        <td>
+                            {{manager.workCnt(peer.nodeId)}}
+                        </td>
+                        <td><span ng-if="peer.ram">
                             <uib-progress max="peer.ram.total" animate="false">
                                 <uib-bar value="peer.ram.used" type="warning"
                                          title="used: {{peer.ram.used/1000/1000 | number: 1}} GB">
@@ -72,7 +58,7 @@
                                 </uib-bar>
                             </uib-progress>
                         </span></td>
-                    <td><span ng-if="!!peer.gpu">
+                        <td><span ng-if="!!peer.gpu">
                         <span class="label label-primary" ng-if="peer.gpu.amd">
                             AMD {{peer.gpu.amd > 1 ? "x"+peer.gpu.amd : ""}}
                         </span>
@@ -80,9 +66,35 @@
                             NVidia {{peer.gpu.nvidia > 1 ? "x"+peer.gpu.nvidia : ""}}
                         </span>
                     </span></td>
-                </tr>
-                </tbody>
-            </table>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="panel-footer">
+        <div class="row" ng-if="manager.isActive">
+            <div class="col-md-6">
+                <uib-progress max="100" animate="false">
+                    <uib-bar value="manager.progress" type="success"
+                             title="work done">
+                    </uib-bar>
+                </uib-progress>
+            </div>
+            <div class="col-md-6">
+                Dividers found:
+                <span ng-repeat="divider in manager.process.fact">
+                    <span class="label label-primary">{{divider}}</span>
+                </span>
+            </div>
+        </div>
+        <div class="row" ng-if="!manager.isActive && manager.lastResult">
+            <div class="col-md-12">
+                Dividers found:
+                <span ng-repeat="divider in manager.lastResult.fact">
+                    <span class="label label-primary">{{divider}}</span>
+                </span>
+            </div>
         </div>
     </div>
 </div>

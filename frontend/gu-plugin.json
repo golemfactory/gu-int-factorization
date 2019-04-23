@@ -1,8 +1,9 @@
 {
+ "id": "cdd7b982-6028-11e9-84b6-ab4470ed0d81",
  "name": "Factorization",
  "version": "0.1.0",
  "author": "Golem Factory",
- "gu-version-req": "*",
+ "gu-version-req": "0.2",
  "load": [ "app.js" ]
 }
 
